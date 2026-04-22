@@ -81,9 +81,9 @@ async fn main(spawner: Spawner) {
     // --- WS2812 Setup an PIN 18 ---
     let mut pio = Pio::new(p.PIO0, Irqs);
     let program = PioWs2812Program::new(&mut pio.common);
-    let mut ws2812 = PioWs2812::new(&mut pio.common, pio.sm0, p.DMA_CH0, Irqs, p.PIN_18, &program);
+    let mut ws2812 = PioWs2812::new(&mut pio.common, pio.sm0, p.DMA_CH0, Irqs, p.PIN_26, &program);
 
-    const NUM_LEDS: usize = 18;
+    const NUM_LEDS: usize = 13;
     let mut colors = [RGB8::default(); NUM_LEDS];
 
     // Dieser Wert merkt sich, wo auf dem Farbrad wir gerade sind
