@@ -9,8 +9,6 @@ mod state;
 mod usb;
 
 use defmt_rtt as _;
-use panic_probe as _;
-
 use embassy_executor::Spawner;
 use embassy_rp::bind_interrupts;
 use embassy_rp::dma::InterruptHandler as DmaInterruptHandler;
@@ -21,6 +19,7 @@ use embassy_rp::pio_programs::ws2812::{PioWs2812, PioWs2812Program};
 use embassy_rp::usb::{Driver, InterruptHandler as UsbInterruptHandler};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::{Builder, Config};
+use panic_probe as _;
 use static_cell::StaticCell;
 
 const USB_EP0_PACKET_SIZE: u8 = 64;

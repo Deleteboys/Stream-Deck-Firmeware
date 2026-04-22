@@ -15,17 +15,28 @@ pub async fn led_task(mut ws2812: LedBus) {
 
     loop {
         match LED_COMMAND_CHANNEL.receive().await {
-            HostToPico::FillAll { r, g, b } => {
-                set_all(&mut colors, RGB8 { r, g, b });
+            HostToPico::FillAll {
+                r,
+                g,
+                b,
+                brightness,
+            } => {
+                set_all(&mut colors, apply_brightness(r, g, b, brightness));
                 ws2812.write(&colors).await;
             }
-            HostToPico::SetLed { index, r, g, b } => {
+            HostToPico::SetLed {
+                index,
+                r,
+                g,
+                b,
+                brightness,
+            } => {
                 if let Some(led) = colors.get_mut(index as usize) {
-                    *led = RGB8 { r, g, b };
+                    *led = apply_brightness(r, g, b, brightness);
                     ws2812.write(&colors).await;
                 }
             }
-            HostToPico::Ping | HostToPico::StartBootloader => {}
+            _ => {}
         }
     }
 }
@@ -34,4 +45,16 @@ fn set_all(colors: &mut [RGB8; NUM_LEDS], color: RGB8) {
     for led in colors.iter_mut() {
         *led = color;
     }
+}
+
+fn apply_brightness(r: u8, g: u8, b: u8, brightness: u8) -> RGB8 {
+    RGB8 {
+        r: scale(r, brightness),
+        g: scale(g, brightness),
+        b: scale(b, brightness),
+    }
+}
+
+fn scale(component: u8, brightness: u8) -> u8 {
+    ((component as u16 * brightness as u16) / 255) as u8
 }
