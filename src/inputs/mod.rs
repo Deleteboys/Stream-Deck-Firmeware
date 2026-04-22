@@ -1,2 +1,2 @@
-mod encoders;
 mod buttons;
+mod encoders;
