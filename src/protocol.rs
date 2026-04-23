@@ -95,6 +95,6 @@ pub enum HostToPico {
 pub enum PicoToHost {
     Hello,
     EncoderTurned { id: u8, delta: i8 },
-    ButtonPressed(u8),
+    ButtonChanged { id: u8, pressed: bool },
     Log(heapless::String<64>),
 }

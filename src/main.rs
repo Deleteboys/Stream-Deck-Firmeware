@@ -93,9 +93,6 @@ async fn main(spawner: Spawner) {
         Input::new(p.PIN_6, Pull::Up),
         Input::new(p.PIN_7, Pull::Up),
         Input::new(p.PIN_8, Pull::Up),
-        Input::new(p.PIN_11, Pull::Up),
-        Input::new(p.PIN_14, Pull::Up),
-        Input::new(p.PIN_17, Pull::Up),
     ];
     spawner.spawn(inputs::buttons::button_task(buttons).unwrap());
 
@@ -106,7 +103,13 @@ async fn main(spawner: Spawner) {
         (Input::new(p.PIN_15, Pull::Up), Input::new(p.PIN_16, Pull::Up)),
         (Input::new(p.PIN_18, Pull::Up), Input::new(p.PIN_19, Pull::Up)),
     ];
-    spawner.spawn(inputs::encoders::encoder_task(encoders).unwrap());
+    let encoder_buttons = [
+        Input::new(p.PIN_11, Pull::Up),
+        Input::new(p.PIN_14, Pull::Up),
+        Input::new(p.PIN_17, Pull::Up),
+    ];
+    spawner
+        .spawn(inputs::encoders::encoder_task(encoders, encoder_buttons).unwrap());
 
     let vibration_motor = Output::new(p.PIN_22, Level::Low);
     spawner.spawn(vibration_test_task(vibration_motor).unwrap());

@@ -10,37 +10,43 @@ const FRAME_SIZE: usize = DISPLAY_WIDTH * DISPLAY_PAGES;
 const COLUMN_OFFSET: u8 = 2;
 const FRAME_TIME: Duration = Duration::from_millis(33);
 
-const ICON_MASTER: [&str; 12] = [
+const ICON_MASTER: [&str; 14] = [
+    "              ",
+    "       11     ",
+    "      111     ",
+    "     1111   1 ",
+    "   111111   11",
+    "   111111  111",
+    "   111111  111",
+    "   111111  111",
+    "   111111  111",
+    "   111111   11",
+    "     1111   1 ",
+    "      111     ",
+    "       11     ",
+    "              ",
+];
+
+const ICON_SPOTIFY: [&str; 14] = [
     "            ",
-    "    1111    ",
-    "  111  111  ",
-    " 11      11 ",
-    " 11  11  11 ",
-    "11  1111  11",
-    "11  1111  11",
-    " 11  11  11 ",
-    " 11      11 ",
-    "  111  111  ",
-    "    1111    ",
+    "    111111   ",
+    "  1111111111 ",
+    " 111111111111",
+    " 11        11",
+    "11111111111111",
+    "1111      1111",
+    "11111111111111",
+    " 1111    1111",
+    " 111111111111",
+    "  1111111111 ",
+    "    111111   ",
+    "            ",
     "            ",
 ];
 
-const ICON_SPOTIFY: [&str; 12] = [
+const ICON_DISCORD: [&str; 14] = [
     "            ",
-    "   111111   ",
-    " 1111111111 ",
-    "11        11",
-    "111111111111",
-    "111      111",
-    "111111111111",
-    "1111    1111",
-    "111111111111",
-    " 1111111111 ",
-    "   111111   ",
     "            ",
-];
-
-const ICON_DISCORD: [&str; 12] = [
     "            ",
     "   11  11   ",
     "  11111111  ",
@@ -55,19 +61,21 @@ const ICON_DISCORD: [&str; 12] = [
     "            ",
 ];
 
-const ICON_BROWSER: [&str; 12] = [
-    "            ",
-    "   111111   ",
-    "  11 11 11  ",
-    " 11  11  11 ",
-    " 11  11  11 ",
-    "111111111111",
-    "111111111111",
-    " 11  11  11 ",
-    " 11  11  11 ",
-    "  11 11 11  ",
-    "   111111   ",
-    "            ",
+const ICON_BROWSER: [&str; 14] = [
+    "              ",
+    "     11111    ",
+    "   111   111  ",
+    "  111     111 ",
+    " 111       111",
+    " 111   1111111",
+    " 111   1111111",
+    " 111          ",
+    " 111          ",
+    "  111     11  ",
+    "   111111111  ",
+    "     11111    ",
+    "              ",
+    "              ",
 ];
 
 const VOLUMES: [u8; 4] = [50, 65, 80, 35];
@@ -135,7 +143,7 @@ fn fill(frame: &mut [u8; FRAME_SIZE], on: bool) {
     frame.fill(if on { 0xff } else { 0x00 });
 }
 
-fn draw_icon(frame: &mut [u8; FRAME_SIZE], x: usize, y: usize, icon: &[&str; 12], on: bool) {
+fn draw_icon(frame: &mut [u8; FRAME_SIZE], x: usize, y: usize, icon: &[&str; 14], on: bool) {
     for (row, line) in icon.iter().enumerate() {
         for (col, b) in line.as_bytes().iter().enumerate() {
             if *b == b'1' {
@@ -294,7 +302,7 @@ fn init_sh1106(i2c: &mut I2c<'_, I2C0, Blocking>, addr: u16) {
     let _ = write_cmd(i2c, addr, 0xa1);
     let _ = write_cmd(i2c, addr, 0xc8);
     let _ = write_cmd2(i2c, addr, 0xda, 0x12);
-    let _ = write_cmd2(i2c, addr, 0x81, 0xbf);
+    let _ = write_cmd2(i2c, addr, 0x81, 0x05);
     let _ = write_cmd2(i2c, addr, 0xd9, 0xf1);
     let _ = write_cmd2(i2c, addr, 0xdb, 0x40);
     let _ = write_cmd(i2c, addr, 0xa4);
@@ -344,7 +352,7 @@ fn write_cmd2(
 fn font_5x7(c: u8) -> [u8; 5] {
     match c {
         b' ' => [0x00, 0x00, 0x00, 0x00, 0x00],
-        b'%' => [0x61, 0x12, 0x0c, 0x48, 0x86],
+        b'%' => [0x23, 0x13, 0x08, 0x64, 0x62],
         b'0' => [0x3e, 0x51, 0x49, 0x45, 0x3e],
         b'1' => [0x00, 0x42, 0x7f, 0x40, 0x00],
         b'2' => [0x42, 0x61, 0x51, 0x49, 0x46],

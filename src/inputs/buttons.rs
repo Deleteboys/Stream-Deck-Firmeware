@@ -4,9 +4,10 @@ use crate::usb::USB_TX_CHANNEL;
 use embassy_rp::gpio::Input;
 use embassy_time::{Duration, Instant, Timer};
 
-const BUTTON_COUNT: usize = 12;
+const BUTTON_COUNT: usize = 9;
 const POLL_INTERVAL: Duration = Duration::from_millis(2);
 const DEBOUNCE_TIME: Duration = Duration::from_millis(20);
+const BUTTON_IDS: [u8; BUTTON_COUNT] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 pub type ButtonBank = [Input<'static>; BUTTON_COUNT];
 
@@ -31,10 +32,10 @@ pub async fn button_task(mut buttons: ButtonBank) {
 
             if pressed != stable_pressed[index] && now.duration_since(changed_at[index]) >= DEBOUNCE_TIME {
                 stable_pressed[index] = pressed;
-
-                if pressed {
-                    let _ = USB_TX_CHANNEL.try_send(PicoToHost::ButtonPressed(index as u8));
-                }
+                let _ = USB_TX_CHANNEL.try_send(PicoToHost::ButtonChanged {
+                    id: BUTTON_IDS[index],
+                    pressed,
+                });
             }
         }
 
