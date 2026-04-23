@@ -1,2 +1,2 @@
-mod buttons;
-mod encoders;
+pub mod buttons;
+pub mod encoders;
