@@ -89,11 +89,12 @@ pub async fn display_demo_task(mut i2c: I2c<'static, I2C0, Blocking>) {
     let _ = FRAME_TIME; // keep constant available for later animated mode
 
     // Static screen to keep input latency low.
-    render_mockup(&mut frame, 0, false);
+    // 'selected_idx' wurde entfernt.
+    render_mockup(&mut frame, false);
     let _ = write_frame(&mut i2c, addr, &frame);
 }
 
-fn render_mockup(frame: &mut [u8; FRAME_SIZE], selected_idx: usize, simple_mode: bool) {
+fn render_mockup(frame: &mut [u8; FRAME_SIZE], simple_mode: bool) {
     let (bg, fg, profile) = if simple_mode {
         (true, false, "PROFIL: BASIC")
     } else {
@@ -110,35 +111,29 @@ fn render_mockup(frame: &mut [u8; FRAME_SIZE], selected_idx: usize, simple_mode:
 
     for i in 0..4 {
         let x_start = i * segment_width;
-        let x_center = x_start + (segment_width / 2);
 
+        // Gestrichelte Trennlinien zwischen den Sektionen
         if i > 0 {
             draw_dashed_vline(frame, x_start, 20, DISPLAY_HEIGHT - 1, 1, 2, fg);
         }
 
-        let mut icon_color = fg;
-        let mut text_color = fg;
-        if i == selected_idx {
-            draw_filled_rect(frame, x_start + 2, 19, segment_width - 3, 44, fg);
-            icon_color = bg;
-            text_color = bg;
-        }
+        // Icon exakt zentrieren: Startpunkt = Segment-Start + 9 Pixel
+        let icon_x = x_start + 9;
+        draw_icon(frame, icon_x, 22, &icons[i], fg);
 
-        draw_icon(frame, x_center.saturating_sub(6), 22, &icons[i], icon_color);
-
+        // Lautstärke-Text zentriert unter dem Icon zeichnen
         let mut vol = [0u8; 4];
         let vol_len = volume_to_ascii(VOLUMES[i], &mut vol);
         draw_text_centered_in_range(
             frame,
-            6,
+            6, // Seite 6 (Pixel y=48 bis 55)
             &vol[..vol_len],
             x_start,
-            x_start + segment_width - 1,
-            text_color,
+            x_start + segment_width - 1, // Zentriert innerhalb der 32 Pixel
+            fg,
         );
     }
 }
-
 fn fill(frame: &mut [u8; FRAME_SIZE], on: bool) {
     frame.fill(if on { 0xff } else { 0x00 });
 }
