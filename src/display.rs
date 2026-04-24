@@ -189,17 +189,6 @@ fn draw_dashed_vline(
     }
 }
 
-fn draw_filled_rect(frame: &mut [u8; FRAME_SIZE], x: usize, y: usize, w: usize, h: usize, on: bool) {
-    if w == 0 || h == 0 {
-        return;
-    }
-    for yy in y..(y + h) {
-        for xx in x..(x + w) {
-            put_pixel(frame, xx, yy, on);
-        }
-    }
-}
-
 fn draw_text_centered(frame: &mut [u8; FRAME_SIZE], page: usize, text: &str, on: bool) {
     draw_text_centered_in_range(frame, page, text.as_bytes(), 0, DISPLAY_WIDTH - 1, on);
 }

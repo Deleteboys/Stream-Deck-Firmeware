@@ -315,15 +315,6 @@ fn blink_period_frames(speed: u8) -> u32 {
 fn speed_step(speed: u8) -> u32 {
     1 + ((speed as u32 * 7) / 255)
 }
-
-fn chase_period_frames(speed: u8) -> u32 {
-    2 + (((255 - speed) as u32 * 78) / 255)
-}
-
-fn comet_period_frames(speed: u8) -> u32 {
-    1 + (((255 - speed) as u32 * 39) / 255)
-}
-
 fn orbit_period_frames(speed: u8) -> u32 {
     1 + (((255 - speed) as u32 * 18) / 255)
 }
