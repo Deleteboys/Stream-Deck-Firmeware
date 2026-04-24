@@ -1,6 +1,7 @@
 
 use crate::protocol::PicoToHost;
 use crate::usb::USB_TX_CHANNEL;
+use crate::vibration::VIBRATION_TRIGGER_CHANNEL;
 use embassy_rp::gpio::Input;
 use embassy_time::{Duration, Instant, Timer};
 
@@ -81,6 +82,9 @@ pub async fn encoder_task(mut encoders: EncoderBank, mut encoder_buttons: Encode
                     id: ENCODER_BUTTON_IDS[index],
                     pressed,
                 });
+                if pressed {
+                    let _ = VIBRATION_TRIGGER_CHANNEL.try_send(());
+                }
             }
         }
 

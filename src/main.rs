@@ -7,6 +7,7 @@ mod leds;
 mod protocol;
 mod state;
 mod usb;
+mod vibration;
 
 use defmt_rtt as _;
 use embassy_executor::Spawner;
@@ -26,8 +27,6 @@ use static_cell::StaticCell;
 const USB_EP0_PACKET_SIZE: u8 = 64;
 const CDC_PACKET_SIZE: u16 = 64;
 const ONBOARD_BLINK_MS: u64 = 500;
-const VIBRATION_PULSE_MS: u64 = 120;
-const VIBRATION_PERIOD_MS: u64 = 2000;
 
 bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => UsbInterruptHandler<USB>;
@@ -112,21 +111,12 @@ async fn main(spawner: Spawner) {
         .spawn(inputs::encoders::encoder_task(encoders, encoder_buttons).unwrap());
 
     let vibration_motor = Output::new(p.PIN_22, Level::Low);
-    spawner.spawn(vibration_test_task(vibration_motor).unwrap());
+    spawner
+        .spawn(vibration::vibration_task(vibration_motor).unwrap());
 
     let mut led = Output::new(p.PIN_25, Level::Low);
     loop {
         led.toggle();
         embassy_time::Timer::after_millis(ONBOARD_BLINK_MS).await;
-    }
-}
-
-#[embassy_executor::task]
-async fn vibration_test_task(mut motor: Output<'static>) {
-    loop {
-        motor.set_high();
-        embassy_time::Timer::after_millis(VIBRATION_PULSE_MS).await;
-        motor.set_low();
-        embassy_time::Timer::after_millis(VIBRATION_PERIOD_MS - VIBRATION_PULSE_MS).await;
     }
 }
