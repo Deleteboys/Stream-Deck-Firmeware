@@ -4,6 +4,8 @@ use crate::usb::USB_TX_CHANNEL;
 use crate::vibration::VIBRATION_TRIGGER_CHANNEL;
 use embassy_rp::gpio::Input;
 use embassy_time::{Duration, Instant, Timer};
+use crate::inputs::debouncer::Debouncer;
+use crate::vibration::VibrationPattern::Short;
 
 const BUTTON_COUNT: usize = 8;
 const POLL_INTERVAL: Duration = Duration::from_millis(2);
@@ -14,35 +16,18 @@ pub type ButtonBank = [Input<'static>; BUTTON_COUNT];
 
 #[embassy_executor::task]
 pub async fn button_task(mut buttons: ButtonBank) {
-    let mut stable_pressed = [false; BUTTON_COUNT];
-    let mut last_sample = [false; BUTTON_COUNT];
-    let now = Instant::now();
-    let mut changed_at = [now; BUTTON_COUNT];
+    let mut debouncers = [(); BUTTON_COUNT].map(|_| Debouncer::new(DEBOUNCE_TIME));
 
     loop {
-        let now = Instant::now();
-
-        for (index, button) in buttons.iter_mut().enumerate() {
-            // Button is wired between GPIO and GND -> active low with pull-up.
-            let pressed = button.is_low();
-
-            if pressed != last_sample[index] {
-                last_sample[index] = pressed;
-                changed_at[index] = now;
-            }
-
-            if pressed != stable_pressed[index] && now.duration_since(changed_at[index]) >= DEBOUNCE_TIME {
-                stable_pressed[index] = pressed;
+        for (i, button) in buttons.iter_mut().enumerate() {
+            if let Some(pressed) = debouncers[i].update(button.is_low()) {
                 let _ = USB_TX_CHANNEL.try_send(PicoToHost::ButtonChanged {
-                    id: BUTTON_IDS[index],
+                    id: i as u8,
                     pressed,
                 });
-                if pressed {
-                    let _ = VIBRATION_TRIGGER_CHANNEL.try_send(());
-                }
+                if pressed { let _ = VIBRATION_TRIGGER_CHANNEL.try_send(Short); }
             }
         }
-
         Timer::after(POLL_INTERVAL).await;
     }
 }
