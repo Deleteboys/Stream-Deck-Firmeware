@@ -64,49 +64,28 @@ async fn main(spawner: Spawner) {
 
     let mut pio = Pio::new(p.PIO0, Irqs);
     let program = PioWs2812Program::new(&mut pio.common);
-    let ws2812 = PioWs2812::new(
-        &mut pio.common,
-        pio.sm0,
-        p.DMA_CH0,
-        Irqs,
-        p.PIN_26,
-        &program,
-    );
+    let ws2812 = PioWs2812::new(&mut pio.common, pio.sm0, p.DMA_CH0, Irqs, p.PIN_26, &program);
 
-    let flash = embassy_rp::flash::Flash::<_, _, { 2 * 1024 * 1024 }>::new(
-        p.FLASH,
-        p.DMA_CH1,
-        Irqs,
-    );
+    let flash = embassy_rp::flash::Flash::<_, _, { 2 * 1024 * 1024 }>::new(p.FLASH, p.DMA_CH1, Irqs);
     let mut config_storage = config::new_storage(flash);
     let device_config = config::load_config(&mut config_storage).await;
 
     spawner.spawn(usb::usb_driver_task(usb_device).unwrap());
     spawner.spawn(usb::usb_comm_task(class).unwrap());
-    spawner
-        .spawn(config::config_task(config_storage, device_config).unwrap());
-    spawner
-        .spawn(leds::led_task(ws2812, device_config.led_effect).unwrap());
+    spawner.spawn(config::config_task(config_storage, device_config).unwrap());
+    spawner.spawn(leds::led_task(ws2812, device_config.led_effect).unwrap());
 
     let i2c_display = I2c::new_blocking(p.I2C0, p.PIN_21, p.PIN_20, I2cConfig::default());
-    spawner
-        .spawn(display::display_demo_task(i2c_display).unwrap());
+    spawner.spawn(display::display_task(i2c_display).unwrap()); // Angepasster Name
 
-    // Adjust these GPIOs to match your button wiring (GPIO <-> button <-> GND).
     let buttons = [
-        Input::new(p.PIN_0, Pull::Up),
-        Input::new(p.PIN_1, Pull::Up),
-        Input::new(p.PIN_2, Pull::Up),
-        Input::new(p.PIN_3, Pull::Up),
-        Input::new(p.PIN_4, Pull::Up),
-        Input::new(p.PIN_5, Pull::Up),
-        Input::new(p.PIN_6, Pull::Up),
-        Input::new(p.PIN_7, Pull::Up),
-        Input::new(p.PIN_8, Pull::Up),
+        Input::new(p.PIN_0, Pull::Up), Input::new(p.PIN_1, Pull::Up),
+        Input::new(p.PIN_2, Pull::Up), Input::new(p.PIN_3, Pull::Up),
+        Input::new(p.PIN_4, Pull::Up), Input::new(p.PIN_5, Pull::Up),
+        Input::new(p.PIN_6, Pull::Up), Input::new(p.PIN_7, Pull::Up),
     ];
     spawner.spawn(inputs::buttons::button_task(buttons).unwrap());
 
-    // Encoder pairs: (A, B) -> (9,10), (12,13), (15,16), (18,19)
     let encoders = [
         (Input::new(p.PIN_9, Pull::Up), Input::new(p.PIN_10, Pull::Up)),
         (Input::new(p.PIN_12, Pull::Up), Input::new(p.PIN_13, Pull::Up)),
@@ -114,16 +93,15 @@ async fn main(spawner: Spawner) {
         (Input::new(p.PIN_18, Pull::Up), Input::new(p.PIN_19, Pull::Up)),
     ];
     let encoder_buttons = [
+        Input::new(p.PIN_8, Pull::Up),
         Input::new(p.PIN_11, Pull::Up),
         Input::new(p.PIN_14, Pull::Up),
         Input::new(p.PIN_17, Pull::Up),
     ];
-    spawner
-        .spawn(inputs::encoders::encoder_task(encoders, encoder_buttons).unwrap());
+    spawner.spawn(inputs::encoders::encoder_task(encoders, encoder_buttons).unwrap());
 
     let vibration_motor = Output::new(p.PIN_22, Level::Low);
-    spawner
-        .spawn(vibration::vibration_task(vibration_motor).unwrap());
+    spawner.spawn(vibration::vibration_task(vibration_motor).unwrap());
 
     let mut led = Output::new(p.PIN_25, Level::Low);
     loop {

@@ -5,10 +5,10 @@ use crate::vibration::VIBRATION_TRIGGER_CHANNEL;
 use embassy_rp::gpio::Input;
 use embassy_time::{Duration, Instant, Timer};
 
-const BUTTON_COUNT: usize = 9;
+const BUTTON_COUNT: usize = 8;
 const POLL_INTERVAL: Duration = Duration::from_millis(2);
-const DEBOUNCE_TIME: Duration = Duration::from_millis(20);
-const BUTTON_IDS: [u8; BUTTON_COUNT] = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+const DEBOUNCE_TIME: Duration = Duration::from_millis(5);
+const BUTTON_IDS: [u8; BUTTON_COUNT] = [0, 1, 2, 3, 4, 5, 6, 7];
 
 pub type ButtonBank = [Input<'static>; BUTTON_COUNT];
 

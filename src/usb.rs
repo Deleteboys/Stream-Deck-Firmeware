@@ -4,7 +4,6 @@ use embassy_rp::rom_data::reset_to_usb_boot;
 use embassy_rp::usb::Driver;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
-use embassy_time::{with_timeout, Duration};
 use embassy_usb::class::cdc_acm::CdcAcmClass;
 use embassy_usb::UsbDevice;
 
@@ -14,7 +13,6 @@ type UsbDriver = Driver<'static, USB>;
 type UsbClass = CdcAcmClass<'static, UsbDriver>;
 
 const USB_PACKET_SIZE: usize = 64;
-const CONNECTION_IDLE_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[embassy_executor::task]
 pub async fn usb_driver_task(mut usb: UsbDevice<'static, UsbDriver>) -> ! {
@@ -27,29 +25,37 @@ pub async fn usb_comm_task(mut class: UsbClass) -> ! {
 
     loop {
         class.wait_connection().await;
+
+        // PC verbunden -> Aufwachen signalisieren
+        let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Resume);
+        let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Resume);
+
         let _ = send_packet(&mut class, &to_log("Pico Online")).await;
 
         loop {
             let select_fut = embassy_futures::select::select(
                 class.read_packet(&mut buf),
                 USB_TX_CHANNEL.receive(),
-            );
+            ).await;
 
-            match with_timeout(CONNECTION_IDLE_TIMEOUT, select_fut).await {
-                Ok(embassy_futures::select::Either::First(Ok(len))) => {
+            match select_fut {
+                embassy_futures::select::Either::First(Ok(len)) => {
                     if let Ok(msg) = postcard::from_bytes::<HostToPico>(&buf[..len]) {
                         handle_host_command(msg, &mut class).await;
                     }
                 }
-                Ok(embassy_futures::select::Either::First(Err(_))) => break,
-                Ok(embassy_futures::select::Either::Second(msg_to_send)) => {
+                embassy_futures::select::Either::First(Err(_)) => break, // Verbindung getrennt
+                embassy_futures::select::Either::Second(msg_to_send) => {
                     if send_packet(&mut class, &msg_to_send).await.is_err() {
-                        break;
+                        break; // Senden fehlgeschlagen, Verbindung wohl weg
                     }
                 }
-                Err(_) => {}
             }
         }
+
+        // Verbindung verloren -> Schlafen signalisieren
+        let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
+        let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Suspend);
     }
 }
 
@@ -61,11 +67,11 @@ async fn handle_host_command(msg: HostToPico, class: &mut UsbClass) {
             reset_to_usb_boot(0, 0);
         }
         HostToPico::FillAll { .. } | HostToPico::SetLed { .. } => {
-            crate::leds::LED_COMMAND_CHANNEL.send(msg).await;
+            crate::leds::LED_COMMAND_CHANNEL.send(crate::leds::LedCommand::HostCommand(msg)).await;
         }
         HostToPico::SetEffect { effect } => {
             crate::leds::LED_COMMAND_CHANNEL
-                .send(HostToPico::SetEffect { effect })
+                .send(crate::leds::LedCommand::HostCommand(HostToPico::SetEffect { effect }))
                 .await;
             crate::config::CONFIG_COMMAND_CHANNEL
                 .send(crate::config::ConfigCommand::SaveLedEffect(effect))
@@ -78,9 +84,9 @@ async fn handle_host_command(msg: HostToPico, class: &mut UsbClass) {
         }
         HostToPico::SetConfig { config } => {
             crate::leds::LED_COMMAND_CHANNEL
-                .send(HostToPico::SetEffect {
+                .send(crate::leds::LedCommand::HostCommand(HostToPico::SetEffect {
                     effect: config.led_effect,
-                })
+                }))
                 .await;
             crate::config::CONFIG_COMMAND_CHANNEL
                 .send(crate::config::ConfigCommand::SetConfig(config))
