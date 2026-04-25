@@ -1,10 +1,10 @@
+use crate::inputs::debouncer::Debouncer;
 use crate::protocol::PicoToHost;
 use crate::usb::USB_TX_CHANNEL;
+use crate::vibration::VibrationPattern::Medium;
 use crate::vibration::VIBRATION_TRIGGER_CHANNEL;
 use embassy_rp::gpio::Input;
-use embassy_time::{Duration, Instant, Timer};
-use crate::inputs::debouncer::Debouncer;
-use crate::vibration::VibrationPattern::{Long, Medium, Short};
+use embassy_time::{Duration, Timer};
 
 const ENCODER_COUNT: usize = 4;
 const ENCODER_BUTTON_COUNT: usize = 4;
@@ -24,7 +24,6 @@ pub async fn encoder_task(mut encoders: EncoderBank, mut encoder_buttons: Encode
     let mut prev_state = [0u8; ENCODER_COUNT];
     let mut accum = [0i8; ENCODER_COUNT];
     let mut debouncers = [(); 4].map(|_| Debouncer::new(BUTTON_DEBOUNCE_TIME));
-
 
     for (id, (a, b)) in encoders.iter_mut().enumerate() {
         let a_bit = a.is_high() as u8;
@@ -70,7 +69,9 @@ pub async fn encoder_task(mut encoders: EncoderBank, mut encoder_buttons: Encode
                     id: i as u8,
                     pressed,
                 });
-                if pressed { let _ = VIBRATION_TRIGGER_CHANNEL.try_send(Medium); }
+                if pressed {
+                    let _ = VIBRATION_TRIGGER_CHANNEL.try_send(Medium);
+                }
             }
         }
         Timer::after(POLL_INTERVAL).await;

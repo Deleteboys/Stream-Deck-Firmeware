@@ -3,7 +3,7 @@ use crate::protocol::PicoToHost;
 use crate::usb::USB_TX_CHANNEL;
 use crate::vibration::VIBRATION_TRIGGER_CHANNEL;
 use embassy_rp::gpio::Input;
-use embassy_time::{Duration, Instant, Timer};
+use embassy_time::{Duration,Timer};
 use crate::inputs::debouncer::Debouncer;
 use crate::vibration::VibrationPattern::Short;
 
@@ -25,7 +25,9 @@ pub async fn button_task(mut buttons: ButtonBank) {
                     id: i as u8,
                     pressed,
                 });
-                if pressed { let _ = VIBRATION_TRIGGER_CHANNEL.try_send(Short); }
+                if pressed {
+                    let _ = VIBRATION_TRIGGER_CHANNEL.try_send(Short);
+                }
             }
         }
         Timer::after(POLL_INTERVAL).await;

@@ -50,6 +50,9 @@ async fn main(spawner: Spawner) {
     static CONTROL_BUF: StaticCell<[u8; 64]> = StaticCell::new();
     static STATE: StaticCell<State> = StaticCell::new();
 
+    static POWER_HANDLER: StaticCell<usb::MyPowerHandler> = StaticCell::new();
+    let power_handler = POWER_HANDLER.init(usb::MyPowerHandler);
+
     let mut builder = Builder::new(
         driver,
         config,
@@ -58,6 +61,8 @@ async fn main(spawner: Spawner) {
         &mut [],
         CONTROL_BUF.init([0; 64]),
     );
+
+    builder.handler(power_handler);
 
     let class = CdcAcmClass::new(&mut builder, STATE.init(State::new()), CDC_PACKET_SIZE);
     let usb_device = builder.build();

@@ -6,6 +6,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_usb::class::cdc_acm::CdcAcmClass;
 use embassy_usb::UsbDevice;
+use embassy_usb::Handler;
 
 pub static USB_TX_CHANNEL: Channel<ThreadModeRawMutex, PicoToHost, 16> = Channel::new();
 
@@ -94,6 +95,30 @@ async fn handle_host_command(msg: HostToPico, class: &mut UsbClass) {
         }
         HostToPico::Ping => {
             let _ = send_packet(class, &to_log("Pong!")).await;
+        }
+    }
+}
+
+pub struct MyPowerHandler;
+
+impl Handler for MyPowerHandler {
+    fn enabled(&mut self, enabled: bool) {
+        if !enabled {
+            // Strom wurde komplett entfernt
+            let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Suspend);
+        }
+    }
+
+    fn suspended(&mut self, suspended: bool) {
+        if suspended {
+            // Der USB-Bus ist im Suspend-Modus (PC schläft)
+            let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Suspend);
+        } else {
+            // Der USB-Bus ist wieder aktiv (PC wacht auf)
+            let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Resume);
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Resume);
         }
     }
 }
