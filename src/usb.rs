@@ -1,3 +1,4 @@
+use crate::display::DisplayCommand;
 use crate::protocol::{HostToPico, PicoToHost};
 use embassy_rp::peripherals::USB;
 use embassy_rp::rom_data::reset_to_usb_boot;
@@ -5,8 +6,8 @@ use embassy_rp::usb::Driver;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_usb::class::cdc_acm::CdcAcmClass;
-use embassy_usb::UsbDevice;
 use embassy_usb::Handler;
+use embassy_usb::UsbDevice;
 
 pub static USB_TX_CHANNEL: Channel<ThreadModeRawMutex, PicoToHost, 16> = Channel::new();
 
@@ -29,7 +30,8 @@ pub async fn usb_comm_task(mut class: UsbClass) -> ! {
 
         // PC verbunden -> Aufwachen signalisieren
         let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Resume);
-        let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Resume);
+        let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+            .try_send(crate::display::DisplayCommand::Resume);
 
         let _ = send_packet(&mut class, &to_log("Pico Online")).await;
 
@@ -37,7 +39,8 @@ pub async fn usb_comm_task(mut class: UsbClass) -> ! {
             let select_fut = embassy_futures::select::select(
                 class.read_packet(&mut buf),
                 USB_TX_CHANNEL.receive(),
-            ).await;
+            )
+            .await;
 
             match select_fut {
                 embassy_futures::select::Either::First(Ok(len)) => {
@@ -56,7 +59,8 @@ pub async fn usb_comm_task(mut class: UsbClass) -> ! {
 
         // Verbindung verloren -> Schlafen signalisieren
         let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
-        let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Suspend);
+        let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+            .try_send(crate::display::DisplayCommand::Suspend);
     }
 }
 
@@ -68,11 +72,15 @@ async fn handle_host_command(msg: HostToPico, class: &mut UsbClass) {
             reset_to_usb_boot(0, 0);
         }
         HostToPico::FillAll { .. } | HostToPico::SetLed { .. } => {
-            crate::leds::LED_COMMAND_CHANNEL.send(crate::leds::LedCommand::HostCommand(msg)).await;
+            crate::leds::LED_COMMAND_CHANNEL
+                .send(crate::leds::LedCommand::HostCommand(msg))
+                .await;
         }
         HostToPico::SetEffect { effect } => {
             crate::leds::LED_COMMAND_CHANNEL
-                .send(crate::leds::LedCommand::HostCommand(HostToPico::SetEffect { effect }))
+                .send(crate::leds::LedCommand::HostCommand(
+                    HostToPico::SetEffect { effect },
+                ))
                 .await;
             crate::config::CONFIG_COMMAND_CHANNEL
                 .send(crate::config::ConfigCommand::SaveLedEffect(effect))
@@ -85,13 +93,37 @@ async fn handle_host_command(msg: HostToPico, class: &mut UsbClass) {
         }
         HostToPico::SetConfig { config } => {
             crate::leds::LED_COMMAND_CHANNEL
-                .send(crate::leds::LedCommand::HostCommand(HostToPico::SetEffect {
-                    effect: config.led_effect,
-                }))
+                .send(crate::leds::LedCommand::HostCommand(
+                    HostToPico::SetEffect {
+                        effect: config.led_effect,
+                    },
+                ))
                 .await;
             crate::config::CONFIG_COMMAND_CHANNEL
                 .send(crate::config::ConfigCommand::SetConfig(config))
                 .await;
+        }
+        HostToPico::SetMuteState { index, mute } => {
+            crate::display::DISPLAY_COMMAND_CHANNEL
+                .send(DisplayCommand::UpdateMute {
+                    slot: index,
+                    muted: false,
+                })
+                .await;
+        }
+        HostToPico::SetIconSlot { slot, icon } => {
+            crate::display::DISPLAY_COMMAND_CHANNEL
+                .send(DisplayCommand::UpdateIcon { slot, icon })
+                .await;
+        }
+        HostToPico::SetVolume { slot, volume } => {
+            crate::display::DISPLAY_COMMAND_CHANNEL
+                .send(DisplayCommand::UpdateVolume { slot, volume })
+                .await;
+        }
+        HostToPico::Vibrate { pattern } => {
+            let _ = crate::vibration::VIBRATION_TRIGGER_CHANNEL
+                .try_send(pattern);
         }
         HostToPico::Ping => {
             let _ = send_packet(class, &to_log("Pong!")).await;
@@ -106,7 +138,8 @@ impl Handler for MyPowerHandler {
         if !enabled {
             // Strom wurde komplett entfernt
             let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
-            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Suspend);
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+                .try_send(DisplayCommand::Suspend);
         }
     }
 
@@ -114,11 +147,13 @@ impl Handler for MyPowerHandler {
         if suspended {
             // Der USB-Bus ist im Suspend-Modus (PC schläft)
             let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
-            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Suspend);
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+                .try_send(DisplayCommand::Suspend);
         } else {
             // Der USB-Bus ist wieder aktiv (PC wacht auf)
             let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Resume);
-            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(crate::display::DisplayCommand::Resume);
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+                .try_send(DisplayCommand::Resume);
         }
     }
 }

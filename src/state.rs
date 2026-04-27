@@ -1,5 +1,6 @@
 // state.rs
-use crate::display::IconType;
+
+use crate::protocol::IconType;
 
 #[derive(Debug, Clone, Copy)]
 pub struct SlotState {

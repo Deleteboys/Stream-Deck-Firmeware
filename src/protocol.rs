@@ -1,4 +1,20 @@
 use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum IconType {
+    Master,
+    Spotify,
+    Discord,
+    Browser,
+    None,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum VibrationPattern {
+    Short,
+    Medium,
+    Long,
+    Custom(u64),
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum LedEffect {
@@ -130,13 +146,28 @@ pub enum HostToPico {
     SetEffect {
         effect: LedEffect,
     },
+    SetMuteState {
+        index: u8,
+        mute: bool,
+    },
+    SetIconSlot {
+        slot: u8,
+        icon: IconType,
+    },
+    SetVolume {
+        slot: u8,
+        volume: u8,
+    },
+    Vibrate {
+        pattern: VibrationPattern,
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PicoToHost {
     Hello,
     EncoderTurned { id: u8, delta: i8 },
-    EncoderChanged { id: u8, pressed: bool},
+    EncoderChanged { id: u8, pressed: bool },
     ButtonChanged { id: u8, pressed: bool },
     Config { config: DeviceConfig },
     ConfigSaved,

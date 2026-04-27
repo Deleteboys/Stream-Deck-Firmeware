@@ -2,6 +2,8 @@ use embassy_rp::i2c::{Blocking, I2c};
 use embassy_rp::peripherals::I2C0;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
+use serde::{Deserialize, Serialize};
+use crate::protocol::IconType;
 
 pub enum DisplayCommand {
     Suspend,
@@ -10,15 +12,6 @@ pub enum DisplayCommand {
     UpdateIcon { slot: u8, icon: IconType },
     UpdateMute { slot: u8, muted: bool },
     SetProfileName(&'static str),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum IconType {
-    Master,
-    Spotify,
-    Discord,
-    Browser,
-    None,
 }
 
 pub static DISPLAY_COMMAND_CHANNEL: Channel<ThreadModeRawMutex, DisplayCommand, 2> = Channel::new();

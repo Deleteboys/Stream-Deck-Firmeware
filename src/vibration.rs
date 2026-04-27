@@ -2,15 +2,9 @@ use embassy_rp::gpio::Output;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::Timer;
+pub(crate) use crate::protocol::VibrationPattern;
 
-pub enum VibrationPattern {
-    Short,
-    Medium,
-    Long,
-    Custom(u64),
-}
-
-pub static VIBRATION_TRIGGER_CHANNEL: Channel<ThreadModeRawMutex, VibrationPattern, 2> = Channel::new();
+pub static VIBRATION_TRIGGER_CHANNEL: Channel<ThreadModeRawMutex, VibrationPattern, 1> = Channel::new();
 
 #[embassy_executor::task]
 pub async fn vibration_task(mut motor: Output<'static>) {
