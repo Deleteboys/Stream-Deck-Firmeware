@@ -59,6 +59,9 @@ jobs:
           git tag "v${NEW_VERSION}"
           git push origin main --follow-tags
 
+      - name: Install System Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libudev-dev
+
       - name: Install elf2uf2-rs
         run: cargo install elf2uf2-rs
 
