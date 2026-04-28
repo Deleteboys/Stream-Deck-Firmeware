@@ -19,8 +19,8 @@ impl Default for DisplayState {
         Self {
             profile_name: "Main",
             slots: [
-                SlotState { icon: IconType::Master, volume: 255, muted: false },
-                SlotState { icon: IconType::Spotify, volume: 255, muted: true },
+                SlotState { icon: IconType::Master, volume: 100, muted: false },
+                SlotState { icon: IconType::Spotify, volume: 50, muted: false },
                 SlotState { icon: IconType::Discord, volume: 80, muted: false },
                 SlotState { icon: IconType::Browser, volume: 35, muted: false },
             ],

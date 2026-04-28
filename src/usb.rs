@@ -112,22 +112,14 @@ async fn handle_host_command(msg: HostToPico, class: &mut UsbClass) {
                 .await;
         }
         HostToPico::SetMuteState { index, mute } => {
-            crate::display::DISPLAY_COMMAND_CHANNEL
-                .send(DisplayCommand::UpdateMute {
-                    slot: index,
-                    muted: false,
-                })
-                .await;
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(DisplayCommand::UpdateMute{slot: index, muted: mute});
         }
         HostToPico::SetIconSlot { slot, icon } => {
-            crate::display::DISPLAY_COMMAND_CHANNEL
-                .send(DisplayCommand::UpdateIcon { slot, icon })
-                .await;
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL.try_send(DisplayCommand::UpdateIcon{slot, icon});
         }
         HostToPico::SetVolume { slot, volume } => {
-            crate::display::DISPLAY_COMMAND_CHANNEL
-                .send(DisplayCommand::UpdateVolume { slot, volume })
-                .await;
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+                .try_send(DisplayCommand::UpdateVolume { slot, volume });
         }
         HostToPico::Vibrate { pattern } => {
             let _ = crate::vibration::VIBRATION_TRIGGER_CHANNEL

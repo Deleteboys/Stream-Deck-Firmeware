@@ -81,7 +81,9 @@ async fn main(spawner: Spawner) {
     spawner.spawn(config::config_task(config_storage, device_config).unwrap());
     spawner.spawn(leds::led_task(ws2812, device_config.led_effect).unwrap());
 
-    let i2c_display = I2c::new_blocking(p.I2C0, p.PIN_21, p.PIN_20, I2cConfig::default());
+    let mut i2c_config = I2cConfig::default();
+    i2c_config.frequency = 400_000;
+    let i2c_display = I2c::new_blocking(p.I2C0, p.PIN_21, p.PIN_20, i2c_config);
     spawner.spawn(display::display_task(i2c_display).unwrap()); // Angepasster Name
 
     let buttons = [

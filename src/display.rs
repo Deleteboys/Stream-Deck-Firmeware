@@ -14,7 +14,7 @@ pub enum DisplayCommand {
     SetProfileName(&'static str),
 }
 
-pub static DISPLAY_COMMAND_CHANNEL: Channel<ThreadModeRawMutex, DisplayCommand, 2> = Channel::new();
+pub static DISPLAY_COMMAND_CHANNEL: Channel<ThreadModeRawMutex, DisplayCommand, 16> = Channel::new();
 
 const DISPLAY_WIDTH: usize = 128;
 const DISPLAY_HEIGHT: usize = 64;
@@ -100,42 +100,50 @@ pub async fn display_task(mut i2c: I2c<'static, I2C0, Blocking>) {
     let _ = write_frame(&mut i2c, addr, &frame);
 
     loop {
-        match DISPLAY_COMMAND_CHANNEL.receive().await {
-            DisplayCommand::UpdateVolume { slot, volume } => {
-                if slot < 4 {
-                    state.slots[slot as usize].volume = volume;
-                    render_screen(&mut frame, &state);
-                    let _ = write_frame(&mut i2c, addr, &frame);
+        let mut cmd = DISPLAY_COMMAND_CHANNEL.receive().await;
+
+        let mut is_suspended = false;
+
+        loop {
+            // State updaten (OHNE direkt zu rendern!)
+            match cmd {
+                DisplayCommand::UpdateVolume { slot, volume } => {
+                    if slot < 4 { state.slots[slot as usize].volume = volume; }
+                }
+                DisplayCommand::UpdateIcon { slot, icon } => {
+                    if slot < 4 { state.slots[slot as usize].icon = icon; }
+                }
+                DisplayCommand::UpdateMute { slot, muted } => {
+                    if slot < 4 { state.slots[slot as usize].muted = muted; }
+                }
+                DisplayCommand::SetProfileName(name) => {
+                    state.profile_name = name;
+                }
+                DisplayCommand::Suspend => {
+                    is_suspended = true;
+                }
+                DisplayCommand::Resume => {
+                    is_suspended = false;
                 }
             }
-            DisplayCommand::UpdateIcon { slot, icon } => {
-                if slot < 4 {
-                    state.slots[slot as usize].icon = icon;
-                    render_screen(&mut frame, &state);
-                    let _ = write_frame(&mut i2c, addr, &frame);
+
+            match DISPLAY_COMMAND_CHANNEL.try_receive() {
+                Ok(next_cmd) => {
+                    cmd = next_cmd;
                 }
-            }
-            DisplayCommand::UpdateMute { slot, muted } => {
-                if slot < 4 {
-                    state.slots[slot as usize].muted = muted;
-                    render_screen(&mut frame, &state);
-                    let _ = write_frame(&mut i2c, addr, &frame);
+                Err(_) => {
+                    break;
                 }
-            }
-            DisplayCommand::SetProfileName(name) => {
-                state.profile_name = name;
-                render_screen(&mut frame, &state);
-                let _ = write_frame(&mut i2c, addr, &frame);
-            }
-            DisplayCommand::Suspend => {
-                fill(&mut frame, false); // Alles aus
-                let _ = write_frame(&mut i2c, addr, &frame);
-            }
-            DisplayCommand::Resume => {
-                render_screen(&mut frame, &state);
-                let _ = write_frame(&mut i2c, addr, &frame);
             }
         }
+
+        if is_suspended {
+            fill(&mut frame, false);
+        } else {
+            render_screen(&mut frame, &state);
+        }
+
+        let _ = write_frame(&mut i2c, addr, &frame);
     }
 }
 
