@@ -2,7 +2,8 @@ use embassy_rp::i2c::{Blocking, I2c};
 use embassy_rp::peripherals::I2C0;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
-use serde::{Deserialize, Serialize};
+use crate::icons;
+use crate::icons::{ICON_ACTIVE_WINDOW, ICON_BROWSER, ICON_CAMERA, ICON_DISCORD, ICON_LIGHT, ICON_MASTER, ICON_MIC, ICON_PLAY_PAUSE, ICON_SPOTIFY};
 use crate::protocol::IconType;
 
 pub enum DisplayCommand {
@@ -21,71 +22,6 @@ const DISPLAY_HEIGHT: usize = 64;
 const DISPLAY_PAGES: usize = DISPLAY_HEIGHT / 8;
 const FRAME_SIZE: usize = DISPLAY_WIDTH * DISPLAY_PAGES;
 const COLUMN_OFFSET: u8 = 2;
-
-const ICON_MASTER: [&str; 14] = [
-    "              ",
-    "       11     ",
-    "      111     ",
-    "     1111   1 ",
-    "   111111   11",
-    "   111111  111",
-    "   111111  111",
-    "   111111  111",
-    "   111111  111",
-    "   111111   11",
-    "     1111   1 ",
-    "      111     ",
-    "       11     ",
-    "              ",
-];
-const ICON_SPOTIFY: [&str; 14] = [
-    "            ",
-    "    111111   ",
-    "  1111111111 ",
-    " 111111111111",
-    " 11        11",
-    "11111111111111",
-    "1111      1111",
-    "11111111111111",
-    " 1111    1111",
-    " 111111111111",
-    "  1111111111 ",
-    "    111111   ",
-    "            ",
-    "            ",
-];
-const ICON_DISCORD: [&str; 14] = [
-    "            ",
-    "            ",
-    "            ",
-    "   11  11   ",
-    "  11111111  ",
-    " 1111111111 ",
-    " 11 1111 11 ",
-    " 11 1111 11 ",
-    " 1111111111 ",
-    "  111  111  ",
-    "   11  11   ",
-    "            ",
-    "            ",
-    "            ",
-];
-const ICON_BROWSER: [&str; 14] = [
-    "              ",
-    "     11111    ",
-    "   111   111  ",
-    "  111     111 ",
-    " 111       111",
-    " 111   1111111",
-    " 111   1111111",
-    " 111          ",
-    " 111          ",
-    "  111     11  ",
-    "   111111111  ",
-    "     11111    ",
-    "              ",
-    "              ",
-];
 
 #[embassy_executor::task]
 pub async fn display_task(mut i2c: I2c<'static, I2C0, Blocking>) {
@@ -177,6 +113,11 @@ fn render_screen(frame: &mut [u8; FRAME_SIZE], state: &crate::state::DisplayStat
             IconType::Spotify => &ICON_SPOTIFY,
             IconType::Discord => &ICON_DISCORD,
             IconType::Browser => &ICON_BROWSER,
+            IconType::Mic => &ICON_MIC,
+            IconType::Camera => &ICON_CAMERA,
+            IconType::PlayPause => &ICON_PLAY_PAUSE,
+            IconType::Light => &ICON_LIGHT,
+            IconType::ActiveWindow => &ICON_ACTIVE_WINDOW,
             IconType::None => &["              "; 14],
         };
 

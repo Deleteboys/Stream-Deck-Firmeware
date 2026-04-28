@@ -5,6 +5,11 @@ pub enum IconType {
     Spotify,
     Discord,
     Browser,
+    Mic,
+    Camera,
+    PlayPause,
+    Light,
+    ActiveWindow,
     None,
 }
 

@@ -9,6 +9,7 @@ mod protocol;
 mod usb;
 mod vibration;
 mod state;
+pub mod icons;
 
 use defmt_rtt as _;
 use embassy_executor::Spawner;
