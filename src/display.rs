@@ -1,10 +1,10 @@
-use embassy_rp::i2c::{Blocking, I2c};
+use embassy_rp::i2c::{Async, I2c};
 use embassy_rp::peripherals::I2C0;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
-use crate::icons;
 use crate::icons::{ICON_ACTIVE_WINDOW, ICON_BROWSER, ICON_CAMERA, ICON_DISCORD, ICON_LIGHT, ICON_MASTER, ICON_MIC, ICON_PLAY_PAUSE, ICON_SPOTIFY};
 use crate::protocol::IconType;
+use embedded_hal_async::i2c::I2c as _;
 
 pub enum DisplayCommand {
     Suspend,
@@ -13,6 +13,7 @@ pub enum DisplayCommand {
     UpdateIcon { slot: u8, icon: IconType },
     UpdateMute { slot: u8, muted: bool },
     SetProfileName(&'static str),
+    ForceRedraw
 }
 
 pub static DISPLAY_COMMAND_CHANNEL: Channel<ThreadModeRawMutex, DisplayCommand, 16> = Channel::new();
@@ -24,21 +25,22 @@ const FRAME_SIZE: usize = DISPLAY_WIDTH * DISPLAY_PAGES;
 const COLUMN_OFFSET: u8 = 2;
 
 #[embassy_executor::task]
-pub async fn display_task(mut i2c: I2c<'static, I2C0, Blocking>) {
-    let addr = probe_addr(&mut i2c).unwrap_or(0x3c);
-    init_sh1106(&mut i2c, addr);
+pub async fn display_task(mut i2c: I2c<'static, I2C0, Async>) {
+    let addr = probe_addr(&mut i2c).await.unwrap_or(0x3c);
+    init_sh1106(&mut i2c, addr).await;
 
     let mut frame = [0u8; FRAME_SIZE];
     let mut state = crate::state::DisplayState::default();
 
     // Initiales Zeichnen des Bildschirms
     render_screen(&mut frame, &state);
-    let _ = write_frame(&mut i2c, addr, &frame);
+    let _ = write_frame(&mut i2c, addr, &frame).await;
+
+    // BUGFIX: is_suspended wird VOR der Schleife deklariert!
+    let mut is_suspended = false;
 
     loop {
         let mut cmd = DISPLAY_COMMAND_CHANNEL.receive().await;
-
-        let mut is_suspended = false;
 
         loop {
             // State updaten (OHNE direkt zu rendern!)
@@ -61,6 +63,7 @@ pub async fn display_task(mut i2c: I2c<'static, I2C0, Blocking>) {
                 DisplayCommand::Resume => {
                     is_suspended = false;
                 }
+                DisplayCommand::ForceRedraw => {}
             }
 
             match DISPLAY_COMMAND_CHANNEL.try_receive() {
@@ -79,13 +82,18 @@ pub async fn display_task(mut i2c: I2c<'static, I2C0, Blocking>) {
             render_screen(&mut frame, &state);
         }
 
-        let _ = write_frame(&mut i2c, addr, &frame);
+        let _ = write_frame(&mut i2c, addr, &frame).await;
     }
 }
 
 fn render_screen(frame: &mut [u8; FRAME_SIZE], state: &crate::state::DisplayState) {
     // 1. Framebuffer leeren (Hintergrund schwarz)
     fill(frame, false);
+
+    if crate::keyboard::KeyboardMapper::is_active() {
+        draw_text_large_centered(frame, "SIMPLE MODE", true);
+        return;
+    }
 
     draw_text_centered(frame, 0, state.profile_name, true);
 
@@ -98,11 +106,6 @@ fn render_screen(frame: &mut [u8; FRAME_SIZE], state: &crate::state::DisplayStat
         let x_start = i * segment_width;
         let slot = &state.slots[i];
 
-        // Koordinaten für das Icon (zentriert im 32-Pixel Segment)
-        let icon_x = x_start + 9;
-        let icon_y = 20;
-
-        // 3. Vertikale Trennlinien zwischen den Slots (nicht vor dem ersten Slot)
         if i > 0 {
             draw_dashed_vline(frame, x_start, 15, DISPLAY_HEIGHT - 1, 1, 2, true);
         }
@@ -313,36 +316,36 @@ fn put_pixel(frame: &mut [u8; FRAME_SIZE], x: usize, y: usize, on: bool) {
     }
 }
 
-fn probe_addr(i2c: &mut I2c<'_, I2C0, Blocking>) -> Option<u16> {
+async fn probe_addr(i2c: &mut I2c<'_, I2C0, Async>) -> Option<u16> {
     for addr in [0x3c_u16, 0x3d_u16] {
-        if i2c.blocking_write(addr, &[0x00]).is_ok() {
+        if i2c.write(addr, &[0x00]).await.is_ok() {
             return Some(addr);
         }
     }
     None
 }
 
-fn init_sh1106(i2c: &mut I2c<'_, I2C0, Blocking>, addr: u16) {
-    let _ = write_cmd(i2c, addr, 0xae);
-    let _ = write_cmd2(i2c, addr, 0xd5, 0x80);
-    let _ = write_cmd2(i2c, addr, 0xa8, 0x3f);
-    let _ = write_cmd2(i2c, addr, 0xd3, 0x00);
-    let _ = write_cmd(i2c, addr, 0x40);
-    let _ = write_cmd2(i2c, addr, 0x8d, 0x14);
-    let _ = write_cmd2(i2c, addr, 0x20, 0x02);
-    let _ = write_cmd(i2c, addr, 0xa1);
-    let _ = write_cmd(i2c, addr, 0xc8);
-    let _ = write_cmd2(i2c, addr, 0xda, 0x12);
-    let _ = write_cmd2(i2c, addr, 0x81, 0x05);
-    let _ = write_cmd2(i2c, addr, 0xd9, 0xf1);
-    let _ = write_cmd2(i2c, addr, 0xdb, 0x40);
-    let _ = write_cmd(i2c, addr, 0xa4);
-    let _ = write_cmd(i2c, addr, 0xa6);
-    let _ = write_cmd(i2c, addr, 0xaf);
+async fn init_sh1106(i2c: &mut I2c<'_, I2C0, Async>, addr: u16) {
+    let _ = write_cmd(i2c, addr, 0xae).await;
+    let _ = write_cmd2(i2c, addr, 0xd5, 0x80).await;
+    let _ = write_cmd2(i2c, addr, 0xa8, 0x3f).await;
+    let _ = write_cmd2(i2c, addr, 0xd3, 0x00).await;
+    let _ = write_cmd(i2c, addr, 0x40).await;
+    let _ = write_cmd2(i2c, addr, 0x8d, 0x14).await;
+    let _ = write_cmd2(i2c, addr, 0x20, 0x02).await;
+    let _ = write_cmd(i2c, addr, 0xa1).await;
+    let _ = write_cmd(i2c, addr, 0xc8).await;
+    let _ = write_cmd2(i2c, addr, 0xda, 0x12).await;
+    let _ = write_cmd2(i2c, addr, 0x81, 0x05).await;
+    let _ = write_cmd2(i2c, addr, 0xd9, 0xf1).await;
+    let _ = write_cmd2(i2c, addr, 0xdb, 0x40).await;
+    let _ = write_cmd(i2c, addr, 0xa4).await;
+    let _ = write_cmd(i2c, addr, 0xa6).await;
+    let _ = write_cmd(i2c, addr, 0xaf).await;
 }
 
-fn write_frame(
-    i2c: &mut I2c<'_, I2C0, Blocking>,
+async fn write_frame(
+    i2c: &mut I2c<'_, I2C0, Async>,
     addr: u16,
     frame: &[u8; FRAME_SIZE],
 ) -> Result<(), embassy_rp::i2c::Error> {
@@ -350,30 +353,31 @@ fn write_frame(
     payload[0] = 0x40;
     for page in 0..DISPLAY_PAGES {
         let col = COLUMN_OFFSET;
-        write_cmd(i2c, addr, 0xb0 | (page as u8))?;
-        write_cmd(i2c, addr, col & 0x0f)?;
-        write_cmd(i2c, addr, 0x10 | ((col >> 4) & 0x0f))?;
+        write_cmd(i2c, addr, 0xb0 | (page as u8)).await?;
+        write_cmd(i2c, addr, col & 0x0f).await?;
+        write_cmd(i2c, addr, 0x10 | ((col >> 4) & 0x0f)).await?;
         let start = page * DISPLAY_WIDTH;
         payload[1..].copy_from_slice(&frame[start..start + DISPLAY_WIDTH]);
-        i2c.blocking_write(addr, &payload)?;
+        i2c.write(addr, &payload).await?;
     }
     Ok(())
 }
 
-fn write_cmd(
-    i2c: &mut I2c<'_, I2C0, Blocking>,
+async fn write_cmd(
+    i2c: &mut I2c<'_, I2C0, Async>,
     addr: u16,
     cmd: u8,
 ) -> Result<(), embassy_rp::i2c::Error> {
-    i2c.blocking_write(addr, &[0x00, cmd])
+    i2c.write(addr, &[0x00, cmd]).await
 }
-fn write_cmd2(
-    i2c: &mut I2c<'_, I2C0, Blocking>,
+
+async fn write_cmd2(
+    i2c: &mut I2c<'_, I2C0, Async>,
     addr: u16,
     cmd: u8,
     val: u8,
 ) -> Result<(), embassy_rp::i2c::Error> {
-    i2c.blocking_write(addr, &[0x00, cmd, val])
+    i2c.write(addr, &[0x00, cmd, val]).await
 }
 
 fn font_5x7(c: u8) -> [u8; 5] {
@@ -422,5 +426,38 @@ fn font_5x7(c: u8) -> [u8; 5] {
         b'Z' => [0x61, 0x51, 0x49, 0x45, 0x43],
 
         _ => [0x00, 0x00, 0x5f, 0x00, 0x00], // Fallback für alle anderen Zeichen
+    }
+}
+
+fn draw_text_large_centered(frame: &mut [u8; FRAME_SIZE], text: &str, on: bool) {
+    let scale = 2; // 2x2 Pixel pro originalem Pixel
+    let glyph_w = 6 * scale; // Ein Buchstabe ist jetzt 12 Pixel breit
+    let text_w = text.len() * glyph_w;
+
+    // Berechne die absolute Mitte des Displays
+    let start_x = (DISPLAY_WIDTH.saturating_sub(text_w)) / 2;
+    let start_y = (DISPLAY_HEIGHT.saturating_sub(7 * scale)) / 2;
+
+    let mut cursor = start_x;
+    for &ch in text.as_bytes() {
+        if cursor + glyph_w > DISPLAY_WIDTH {
+            break;
+        }
+        let glyph = font_5x7(ch.to_ascii_uppercase());
+
+        // Jeden Pixel verdoppeln
+        for (dx, bits) in glyph.iter().enumerate() {
+            for dy in 0..7 {
+                if (bits >> dy) & 1 != 0 {
+                    // Zeichne einen 2x2 Block für jeden Pixel
+                    for sx in 0..scale {
+                        for sy in 0..scale {
+                            put_pixel(frame, cursor + dx * scale + sx, start_y + dy * scale + sy, on);
+                        }
+                    }
+                }
+            }
+        }
+        cursor += glyph_w;
     }
 }

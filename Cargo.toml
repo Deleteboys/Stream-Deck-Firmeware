@@ -35,6 +35,8 @@ embassy-futures = "0.1.2"
 embedded-storage = "0.3.1"
 sequential-storage = { version = "7.2.0", features = ["postcard"] }
 heapless = { version = "0.9.2", features = ["serde"] }
+embedded-hal-async = "1.0.0"
+usbd-hid = "0.10.0"
 
 # but you can use any BSP. Uncomment this to use the pro_micro_rp2040 BSP instead
 # sparkfun-pro-micro-rp2040 = "0.8"

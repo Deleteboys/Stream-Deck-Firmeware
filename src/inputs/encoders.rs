@@ -5,14 +5,13 @@ use crate::vibration::VibrationPattern::Medium;
 use crate::vibration::VIBRATION_TRIGGER_CHANNEL;
 use embassy_rp::gpio::Input;
 use embassy_time::{Duration, Timer};
+use crate::keyboard::KeyboardMapper;
 
 const ENCODER_COUNT: usize = 4;
 const ENCODER_BUTTON_COUNT: usize = 4;
 const POLL_INTERVAL: Duration = Duration::from_millis(1);
 const STEPS_PER_DETENT: i8 = 4;
 const BUTTON_DEBOUNCE_TIME: Duration = Duration::from_millis(5);
-const ENCODER_BUTTON_IDS: [u8; ENCODER_BUTTON_COUNT] = [8, 11, 14, 17];
-
 pub type EncoderBank = [(Input<'static>, Input<'static>); ENCODER_COUNT];
 pub type EncoderButtonBank = [Input<'static>; ENCODER_BUTTON_COUNT];
 
@@ -45,19 +44,20 @@ pub async fn encoder_task(mut encoders: EncoderBank, mut encoder_buttons: Encode
                 accum[id] += delta;
 
                 while accum[id] >= STEPS_PER_DETENT {
-                    let _ = USB_TX_CHANNEL.try_send(PicoToHost::EncoderTurned {
-                        id: id as u8,
-                        // Flip direction so clockwise is reported as +1.
-                        delta: -1,
-                    });
+                    if KeyboardMapper::is_active() {
+                        KeyboardMapper::send_encoder_turn(id as u8, 1);
+                    } else {
+                        let _ = USB_TX_CHANNEL.try_send(PicoToHost::EncoderTurned { id: id as u8, delta: -1 });
+                    }
                     accum[id] -= STEPS_PER_DETENT;
                 }
 
                 while accum[id] <= -STEPS_PER_DETENT {
-                    let _ = USB_TX_CHANNEL.try_send(PicoToHost::EncoderTurned {
-                        id: id as u8,
-                        delta: 1,
-                    });
+                    if KeyboardMapper::is_active() {
+                        KeyboardMapper::send_encoder_turn(id as u8, -1);
+                    } else {
+                        let _ = USB_TX_CHANNEL.try_send(PicoToHost::EncoderTurned { id: id as u8, delta: 1 });
+                    }
                     accum[id] += STEPS_PER_DETENT;
                 }
             }
@@ -65,10 +65,16 @@ pub async fn encoder_task(mut encoders: EncoderBank, mut encoder_buttons: Encode
 
         for (i, button) in encoder_buttons.iter_mut().enumerate() {
             if let Some(pressed) = debouncers[i].update(button.is_low()) {
-                let _ = USB_TX_CHANNEL.try_send(PicoToHost::EncoderChanged {
-                    id: i as u8,
-                    pressed,
-                });
+                if KeyboardMapper::is_active() {
+                    if pressed {
+                        KeyboardMapper::send_encoder_push(i as u8);
+                    }
+                } else {
+                    let _ = USB_TX_CHANNEL.try_send(PicoToHost::EncoderChanged {
+                        id: i as u8,
+                        pressed,
+                    });
+                }
                 if pressed {
                     let _ = VIBRATION_TRIGGER_CHANNEL.try_send(Medium);
                 }
