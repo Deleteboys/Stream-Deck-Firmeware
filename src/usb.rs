@@ -58,9 +58,9 @@ pub async fn usb_comm_task(mut class: UsbClass) -> ! {
         }
 
         // Verbindung verloren -> Schlafen signalisieren
-        let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
-        let _ = crate::display::DISPLAY_COMMAND_CHANNEL
-            .try_send(crate::display::DisplayCommand::Suspend);
+        // let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
+        // let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+        //     .try_send(crate::display::DisplayCommand::Suspend);
     }
 }
 
@@ -140,7 +140,16 @@ impl Handler for MyPowerHandler {
             let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Suspend);
             let _ = crate::display::DISPLAY_COMMAND_CHANNEL
                 .try_send(DisplayCommand::Suspend);
+        }else {
+            let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Resume);
+            let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+                .try_send(DisplayCommand::Resume);
         }
+    }
+    fn reset(&mut self) {
+        let _ = crate::leds::LED_COMMAND_CHANNEL.try_send(crate::leds::LedCommand::Resume);
+        let _ = crate::display::DISPLAY_COMMAND_CHANNEL
+            .try_send(DisplayCommand::Resume);
     }
 
     fn suspended(&mut self, suspended: bool) {
