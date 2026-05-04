@@ -81,7 +81,7 @@ jobs:
         with:
           tag_name: v${{ steps.bump.outputs.version }}
           name: "Firmware v${{ steps.bump.outputs.version }}"
-          body: "Neues Update für die Streamdeck Firmware."
+          body: "Neues Update für die Nova Deck Firmware."
           files: pico-streamdeck.uf2
           draft: false
           prerelease: false
